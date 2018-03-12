@@ -39,7 +39,7 @@ function InstanceProxy(instance, validations = {}) {
             }
           }
           try {
-            return target[prop].bind(target)(...(formatedArgs || args));
+            return await target[prop].bind(target)(...(formatedArgs || args));
           } catch (err) {
             err.message = `(${instance.constructor.name}.${prop}) ${err.message}`;
             throw err;

@@ -114,45 +114,33 @@ class ServiceContainer {
     /**
      * Set missing configs or extend existing ones
      */
-    if (service.Class && service.Class.configs) {
-      const { Class: { configs } } = service;
-      service.name = service.name || configs.name || helpers.Class.extractName(service.Class);
-      service.namespace = service.namespace || configs.namespace;
-      if (configs.di) {
-        if (
-          !(service.di.constructor instanceof Array) &&
-          configs.di.constructor instanceof Array
-        ) {
-          service.di.constructor = configs.di.constructor;
+    if (service.Class) {
+      if (service.Class['@di']) {
+        // constructor di is missing from configs and its set in class configs
+        if (!(service.di.constructor instanceof Array) && service.Class['@di'].constructor instanceof Array) {
+          service.di.constructor = service.Class['@di'].constructor;
         }
-        if (
-          typeof configs.di.setters === 'object' &&
-          !(configs.di.setters instanceof Array)
-        ) {
-          service.di.setters = Object.assign(({} || service.di.setters), configs.di.setters);
+        // merge setters from configs with setters from class (configs setters have priority)
+        if (typeof service.Class['@di'].setters === 'object' && !(service.Class['@di'].setters instanceof Array)) {
+          service.di.setters = Object.assign({}, service.Class['@di'].setters, (service.di.setters || {}));
         }
-        service.di.after = service.di.after || configs.di.after;
+        // set after (configs after has priority)
+        service.di.after = service.di.after || service.Class['@di'].after;
       }
-      service.singleton = service.singleton || configs.singleton;
+      service.name = service.name || service.Class['@name'] || helpers.Class.extractName(service.Class);
+      service.namespace = service.namespace || service.Class['@namespace'];
+      service.singleton = service.singleton || service.Class['@singleton'];
     }
     // remove constructor if its function
-    if (typeof service.di.constructor === 'function') {
-      delete service.di.constructor;
-    }
     /**
      * Validate service configs.
      */
     if (!service.name) {
       throw new Error(`Trying to add a service without a name. ${JSON.stringify(service)}`);
     }
-    // TODO: di constructor, setters ...
-    // format service dependencies
-    if (service.di.constructor) {
-      try {
-        service.di.constructor_formatted = service.di.constructor.map(this._dependencyFormatter.format.bind(this._dependencyFormatter));
-      } catch (err) {
-        console.log(err);
-      }
+    // validate and format service dependencies
+    if (service.di.constructor instanceof Array) {
+      service.di.constructor_formatted = service.di.constructor.map(this._dependencyFormatter.format.bind(this._dependencyFormatter));
     }
     if (service.di.setters) {
       service.di.setters_formatted = {};
