@@ -7,20 +7,26 @@ const Service = {
   /**
    * Extract class name.
    * @param service
-   * @param directory
+   * @param directoryResolver
    * @return {*}
    */
-  formatPath(service, directory) {
+  formatPath(service, directoryResolver) {
     if (typeof service === 'undefined') throw new Error('Missing service argument.');
-    if (typeof directory === 'undefined') throw new Error('Missing directory argument.');
+    if (typeof directoryResolver === 'undefined') throw new Error('Missing directoryResolver argument.');
     if (typeof service !== 'object') throw new Error(`Wrong service argument type ${typeof service}, expected object.`);
-    if (typeof directory !== 'string') throw new Error(`Wrong directory argument type ${typeof directory}, expected string.`);
+    if (typeof directoryResolver !== 'function') throw new Error(`Wrong directoryResolver argument type ${typeof directoryResolver}, expected function.`);
     // don't know what service to load
     if (!service.name && !service.path) {
       throw new Error(`Can't load service because path is missing. '${JSON.stringify(service)}'`);
     }
     if (!service.path) {
       service.path = `${(service.namespace ? `${service.namespace}.` : '')}${service.name}`;
+    }
+    let directory;
+    try {
+      directory = directoryResolver(service.from || 'service');
+    } catch (err) {
+      throw new Error(`Invalid service from '${service.from}'.`);
     }
     service.path = path.join(directory, ...service.path.split('.'));
     return service;
@@ -122,6 +128,44 @@ const Service = {
       }
     }
     return service;
+  },
+  /**
+   * Resolve service.
+   * @param path
+   * @return {*}
+   */
+  async resolve(path) {
+    if (typeof path === 'undefined') throw new Error('Missing path argument.');
+    if (typeof path !== 'string') throw new Error(`Wrong path argument type ${typeof path}, expected string.`);
+    let service;
+    try {
+      service = await require(path);
+    } catch (err) {
+      //
+      throw err;
+    }
+    return service;
+  },
+  /**
+   * Is service resolved correctly?
+   * @param service
+   */
+  resolvedCorrectly(service) {
+    if (typeof service === 'undefined') throw new Error('Missing service argument.');
+    if (typeof service !== 'object') throw new Error(`Wrong service argument type ${typeof service}, expected object.`);
+    if (
+      service.singleton !== 'resolved' && // not already resolved
+      (
+        typeof service.Class !== 'function' ||
+        (
+          !service.Class.toString().startsWith('class') &&
+          !service.Class.toString().startsWith('function')
+        )
+      )
+    ) {
+      throw new Error(`Service '${service.path}' is not a class.`);
+    }
+    return true;
   },
 };
 

@@ -11,12 +11,12 @@ const errors = {};
 class ServiceContainer {
   /**
    * @constructor
-   * @param directory
+   * @param directoryResolver
    * @param dependencyResolver
    */
-  constructor(directory, dependencyResolver) {
-    validations.classConstructor(directory, dependencyResolver);
-    this._init(directory, dependencyResolver);
+  constructor(directoryResolver, dependencyResolver) {
+    validations.classConstructor(directoryResolver, dependencyResolver);
+    this._init(directoryResolver, dependencyResolver);
     return InstanceProxy(this, validations);
   }
 
@@ -27,7 +27,7 @@ class ServiceContainer {
    * @private
    */
   _init(directory, dependencyResolver) {
-    this._directory = directory;
+    this._directoryResolver = directory;
     this._dependencyResolver = dependencyResolver;
     this._services = new Map();
   }
@@ -48,9 +48,10 @@ class ServiceContainer {
    * @private
    */
   async set(service) {
-    helpers.Service.formatPath(service, this._directory);
+    helpers.Service.formatPath(service, this._directoryResolver);
     if (service.autowire) {
-      service.Class = await helpers.Class.resolve(service.path);
+      service.Class = await helpers.Service.resolve(service.path);
+      helpers.Service.resolvedCorrectly(service);
       helpers.Service.extractConfigsFromClass(service);
     }
     // validate name
@@ -98,7 +99,11 @@ class ServiceContainer {
     const service = this._services.get(serviceName); // get service
     parents.add(serviceName); // add service name to list
     if (!service.Class) { // load service Class if its not loaded yet
-      service.Class = await helpers.Class.resolve(service.path);
+      service.Class = await helpers.Service.resolve(service.path);
+      helpers.Service.resolvedCorrectly(service);
+    }
+    if (service.singleton === 'resolved') { // already resolved dependency
+      return service.Class;
     }
     if (injectClass) { // if its only class dependency
       return service.Class;
@@ -158,11 +163,11 @@ class ServiceContainer {
 /**
  * Validations
  */
-validations.classConstructor = (directory, dependencyResolver) => {
-  if (typeof directory === 'undefined') throw new Error('Missing services directory argument.');
-  if (typeof dependencyResolver === 'undefined') throw new Error('Missing dependencyResolver argument.');
-  if (typeof directory !== 'string') throw new Error(`Wrong services directory argument type ${typeof directory}, expected string.`);
-  if (typeof dependencyResolver !== 'function') throw new Error(`Wrong dependencyResolver argument type ${typeof dependencyResolver}, expected function.`);
+validations.classConstructor = (directoryResolver, dependencyResolver) => {
+  if (typeof directoryResolver === 'undefined') throw new Error('Missing services directoryResolver argument.');
+  if (typeof dependencyResolver === 'undefined') throw new Error('Missing service dependencyResolver argument.');
+  if (typeof directoryResolver !== 'function') throw new Error(`Wrong services directoryResolver argument type ${typeof directoryResolver}, expected function.`);
+  if (typeof dependencyResolver !== 'function') throw new Error(`Wrong service dependencyResolver argument type ${typeof dependencyResolver}, expected function.`);
 };
 validations.add = (service) => {
   if (typeof service === 'undefined') throw new Error('Missing service argument.');

@@ -6,29 +6,6 @@ extractor.set('FunctionName', new RegExp('^function (.*?)[ (]'));
 
 const Class = {
   /**
-   * Resolve class.
-   * @param path
-   * @return {*}
-   */
-  async resolve(path) {
-    if (typeof path === 'undefined') throw new Error('Missing path argument.');
-    if (typeof path !== 'string') throw new Error(`Wrong path argument type ${typeof path}, expected string.`);
-    let ClassObj;
-    try {
-      ClassObj = await require(path);
-    } catch (err) {
-      //
-      throw err;
-    }
-    if (
-      typeof ClassObj !== 'function' ||
-      (!ClassObj.toString().startsWith('class') && !ClassObj.toString().startsWith('function'))
-    ) {
-      throw new Error(`Service '${path}' is not a class.`);
-    }
-    return ClassObj;
-  },
-  /**
    * Extract class name.
    * @param ClassObj
    * @return {*}

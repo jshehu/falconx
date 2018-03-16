@@ -28,7 +28,7 @@ class Falconx {
   _init(configs) {
     this._setConfigs(configs);
     this._environmentLoader = new EnvironmentLoader(this.getDirectory('environment'));
-    this._serviceContainer = new ServiceContainer(this.getDirectory('service'), this._dependencyResolver.bind(this));
+    this._serviceContainer = new ServiceContainer(this.getDirectory.bind(this), this._dependencyResolver.bind(this));
   }
 
   /**
@@ -68,7 +68,7 @@ class Falconx {
    */
   getDirectory(entity) {
     if (!(entity in this._directories)) {
-      throw new Error();
+      throw new Error(`Trying to get directory on unknown entity '${entity}'.`);
     }
     return this._directories[entity];
   }
@@ -83,14 +83,27 @@ class Falconx {
   }
 
   /**
-   * Get service container.
-   * @return {ServiceContainer}
+   * Set service.
+   * @param service
+   * @return {Promise<*>}
    */
-  container() {
+  async addService(service) {
     if (!this._environmentLoader.isLoaded()) {
       throw new Error('Trying to access service container without loading environment first.');
     }
-    return this._serviceContainer;
+    return this._serviceContainer.set(service);
+  }
+
+  /**
+   * Get service.
+   * @param serviceName
+   * @return {Promise<{}>}
+   */
+  async getService(serviceName) {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to access service container without loading environment first.');
+    }
+    return this._serviceContainer.get(serviceName);
   }
 
   /**
