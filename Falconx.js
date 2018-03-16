@@ -1,4 +1,5 @@
 const path = require('path');
+const each = require('each.js');
 const EnvironmentLoader = require('./_/EnvironmentLoader');
 const ServiceContainer = require('./_/ServiceContainer');
 const InstanceProxy = require('./_/InstanceProxy');
@@ -80,6 +81,15 @@ class Falconx {
    */
   async loadEnvironment(name) {
     return this._environmentLoader.load(name);
+  }
+
+  /**
+   * Add services.
+   * @param services
+   * @return {Promise<*|Promise<Array>>}
+   */
+  async addServices(services) {
+    return each.series(services, this.addService.bind(this));
   }
 
   /**

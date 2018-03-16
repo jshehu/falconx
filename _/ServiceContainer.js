@@ -104,7 +104,9 @@ class ServiceContainer {
     parents.add(serviceName); // add service name to list
     if (!service.Class) { // load service Class if its not loaded yet
       service.Class = await helpers.Service.resolve(service.path);
-      helpers.Service.resolvedCorrectly(service);
+      if (!service.isInstance) { // if is not instance
+        helpers.Service.resolvedCorrectly(service);
+      }
     }
     if (service.isInstance) { // already resolved dependency
       return service.Class;
