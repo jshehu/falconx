@@ -51,15 +51,19 @@ class ServiceContainer {
     helpers.Service.formatPath(service, this._directoryResolver);
     if (service.autowire) {
       service.Class = await helpers.Service.resolve(service.path);
-      helpers.Service.resolvedCorrectly(service);
+      if (!service.isInstance) { // if is not instance
+        helpers.Service.resolvedCorrectly(service);
+      }
       helpers.Service.extractConfigsFromClass(service);
     }
     // validate name
     if (!service.name) {
       throw new Error(`Trying to add a service without a name. ${JSON.stringify(service)}`);
     }
-    // TODO: validate di
-    helpers.Service.formatDI(service);
+    if (!service.isInstance) { // if is not instance
+      // TODO: validate di
+      helpers.Service.formatDI(service);
+    }
     helpers.Service.generateIdentifier(service);
     // verify duplicate
     if (this._services.has(service.identifier)) {
@@ -102,7 +106,7 @@ class ServiceContainer {
       service.Class = await helpers.Service.resolve(service.path);
       helpers.Service.resolvedCorrectly(service);
     }
-    if (service.singleton === 'resolved') { // already resolved dependency
+    if (service.isInstance) { // already resolved dependency
       return service.Class;
     }
     if (injectClass) { // if its only class dependency

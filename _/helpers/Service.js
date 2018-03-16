@@ -44,11 +44,15 @@ const Service = {
         service.name = service.Class['@name'] || Class.extractName(service.Class);
         service.namespace = service.Class['@namespace'] || '';
       }
-      if (!service.di) {
-        service.di = service.Class['@di'];
-      }
-      if (service.Class['@singleton']) {
-        service.singleton = service.Class['@singleton'];
+      if (service.isInstance) {
+        service.singleton = true;
+      } else {
+        if (!service.di) {
+          service.di = service.Class['@di'];
+        }
+        if (service.Class['@singleton']) {
+          service.singleton = service.Class['@singleton'];
+        }
       }
     }
     return service;
@@ -154,13 +158,10 @@ const Service = {
     if (typeof service === 'undefined') throw new Error('Missing service argument.');
     if (typeof service !== 'object') throw new Error(`Wrong service argument type ${typeof service}, expected object.`);
     if (
-      service.singleton !== 'resolved' && // not already resolved
+      typeof service.Class !== 'function' ||
       (
-        typeof service.Class !== 'function' ||
-        (
-          !service.Class.toString().startsWith('class') &&
-          !service.Class.toString().startsWith('function')
-        )
+        !service.Class.toString().startsWith('class') &&
+        !service.Class.toString().startsWith('function')
       )
     ) {
       throw new Error(`Service '${service.path}' is not a class.`);
