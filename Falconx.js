@@ -1,10 +1,8 @@
 const path = require('path');
-// const each = require('each.js');
-const RegexExtractor = require('./_/RegexExtractor');
 const EnvironmentLoader = require('./_/EnvironmentLoader');
-const DependencyFormatter = require('./_/DependencyFormatter');
 const ServiceContainer = require('./_/ServiceContainer');
 const InstanceProxy = require('./_/InstanceProxy');
+const helpers = require('./_/helpers');
 
 const validations = {};
 const errors = {};
@@ -16,63 +14,72 @@ class Falconx {
   /**
    * @constructor
    */
-  constructor(options = {}) {
-    const { root = __dirname, paths = {} } = options;
-    // save path as node modules
-    this._root = root;
-    // relative from root
-    this._paths = {
-      command: 'commands',
-      config: 'configs',
-      environment: 'environments',
-      factory: 'factories',
-      helper: 'helpers',
-      service: 'services',
-      test: 'tests',
-    };
-    Object.assign(this._paths, paths);
-    this._updateFullPaths();
-    // environment
-    this._environment = new EnvironmentLoader(this._fullPaths.environment);
-    // service container
-    const extractor = new RegexExtractor();
-    const dependencyFormatter = new DependencyFormatter(extractor);
-    this._serviceContainer = new ServiceContainer(this._fullPaths.service, dependencyFormatter);
-    // proxy
+  constructor(configs = {}) {
+    validations.classConstructor(configs);
+    this._init(configs);
     return InstanceProxy(this, validations);
   }
 
   /**
-   * Set root.
-   * @param root
-   */
-  setRoot(root) {
-    this._root = root;
-    // update full paths with new root
-    this._updateFullPaths();
-    // update environments path
-    this._environment.setPath(this._fullPaths.environment);
-    // update services path
-    this._serviceContainer.setPath(this._fullPaths.service);
-  }
-
-  /**
-   * Set full paths.
+   * Init.
+   * @param configs
    * @private
    */
-  _updateFullPaths() {
-    this._fullPaths = Object.entries(this._paths).reduce((acc, [entity, entityPath]) => {
-      acc[entity] = path.join(this._root, entityPath);
-      return acc;
-    }, {});
+  _init(configs) {
+    this._setConfigs(configs);
+    this._environmentLoader = new EnvironmentLoader(this.getDirectory('environment'));
+    this._serviceContainer = new ServiceContainer(this.getDirectory('service'), this._dependencyResolver.bind(this));
   }
 
   /**
-   * Get environment loader.
-   * @return {EnvironmentLoader}
+   * Setup configs.
+   * @param configs
+   * @private
    */
-  environment() {
-    return this._environment;
+  _setConfigs(configs) {
+    this._root = configs.root || __dirname;
+    this._directories = {
+      command: configs.commands || 'commands',
+      config: configs.configs || 'configs',
+      environment: configs.environments || 'environments',
+      factory: configs.factories || 'factories',
+      helper: configs.helpers || 'helpers',
+      service: configs.services || 'services',
+      test: configs.tests || 'tests',
+    };
+    // format directories
+    Object.keys(this._directories).forEach((entity) => {
+      this._directories[entity] = path.join(this._root, ...this._directories[entity].split('.'));
+    });
+  }
+
+  /**
+   * Get root.
+   * @return {*}
+   */
+  getRoot() {
+    return this._root;
+  }
+
+  /**
+   * Get directory.
+   * @param entity
+   * @return {*}
+   */
+  getDirectory(entity) {
+    if (!(entity in this._directories)) {
+      throw new Error();
+    }
+    return this._directories[entity];
+  }
+
+  /**
+   * Load environment.
+   * @param name
+   * @return {Promise<void>}
+   */
+  async loadEnvironment(name) {
+    return this._environmentLoader.load(name);
   }
 
   /**
@@ -80,23 +87,48 @@ class Falconx {
    * @return {ServiceContainer}
    */
   container() {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to access service container without loading environment first.');
+    }
     return this._serviceContainer;
+  }
+
+  /**
+   * Resolve dependency.
+   * @param dependency
+   * @return {Promise<*>}
+   * @private
+   */
+  async _dependencyResolver(dependency) {
+    if (dependency.exported) { // if resolved before
+      return dependency.exported;
+    }
+    if (dependency.type === 'environment') {
+      dependency.exported = this._environment;
+    } else { // generate path and resolve dependency
+      dependency.path = path.join(this._directories[dependency.type], ...dependency.name.split('.'));
+      try {
+        dependency.exported = await require(dependency.path);
+      } catch (err) {
+        err.message = `Can't load ${dependency.type} '${dependency.name}' using path '${dependency.path}'. Message: ${err.message}`;
+        throw err;
+      }
+    }
+    // resolve dependency prop
+    try {
+      dependency.exported = helpers.getObjectProperty(dependency.exported, dependency.prop);
+    } catch (err) {
+      throw new Error(`${dependency.type.charAt(0).toUpperCase()}${dependency.type.substring(1)} '${dependency.name}' property '${dependency.prop}' not found.`);
+    }
+    return dependency.exported;
   }
 }
 
 /**
  * Validations
  */
-validations.classConstructor = (options) => { // eslint-disable-line
+validations.classConstructor = (configs) => { // eslint-disable-line
   // TODO: validations
-};
-validations.setRoot = (root) => {
-  if (typeof root === 'undefined') throw new Error('Missing root argument.');
-  if (typeof root !== 'string') throw new Error(`Wrong root type ${typeof root}, expected string.`);
-};
-validations.setEnvironment = (envName) => {
-  if (typeof envName === 'undefined') throw new Error('Missing envName argument.');
-  if (typeof envName !== 'string') throw new Error(`Wrong envName type ${typeof envName}, expected string.`);
 };
 Falconx.validations = validations;
 /**

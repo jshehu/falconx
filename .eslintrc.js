@@ -8,5 +8,6 @@ module.exports = {
     'no-param-reassign': 'off',
     'class-methods-use-this': 'off',
     'object-curly-newline': 'off',
+    'no-shadow': 'off',
   },
 };

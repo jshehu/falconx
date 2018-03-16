@@ -1,6 +1,4 @@
-const path = require('path');
 const each = require('each.js');
-const DependencyFormatter = require('./DependencyFormatter');
 const InstanceProxy = require('./InstanceProxy');
 const helpers = require('./helpers');
 
@@ -13,23 +11,25 @@ const errors = {};
 class ServiceContainer {
   /**
    * @constructor
-   * @param servicesPath
-   * @param dependencyFormatter
+   * @param directory
+   * @param dependencyResolver
    */
-  constructor(servicesPath, dependencyFormatter) {
-    validations.classConstructor(servicesPath, dependencyFormatter);
-    this._servicesPath = servicesPath;
-    this._dependencyFormatter = dependencyFormatter;
-    this._services = new Map();
+  constructor(directory, dependencyResolver) {
+    validations.classConstructor(directory, dependencyResolver);
+    this._init(directory, dependencyResolver);
     return InstanceProxy(this, validations);
   }
 
   /**
-   * Set services path.
-   * @param servicesPath
+   * Init.
+   * @param directory
+   * @param dependencyResolver
+   * @private
    */
-  setPath(servicesPath) {
-    this._servicesPath = servicesPath;
+  _init(directory, dependencyResolver) {
+    this._directory = directory;
+    this._dependencyResolver = dependencyResolver;
+    this._services = new Map();
   }
 
   /**
@@ -39,6 +39,34 @@ class ServiceContainer {
    */
   has(service) {
     return this._services.has(service);
+  }
+
+  /**
+   * Set service.
+   * @param service
+   * @return {Promise<*>}
+   * @private
+   */
+  async set(service) {
+    helpers.Service.formatPath(service, this._directory);
+    if (service.autowire) {
+      service.Class = await helpers.Class.resolve(service.path);
+      helpers.Service.extractConfigsFromClass(service);
+    }
+    // validate name
+    if (!service.name) {
+      throw new Error(`Trying to add a service without a name. ${JSON.stringify(service)}`);
+    }
+    // TODO: validate di
+    helpers.Service.formatDI(service);
+    helpers.Service.generateIdentifier(service);
+    // verify duplicate
+    if (this._services.has(service.identifier)) {
+      throw new Error(`Another service '${service.identifier}' is already set.`);
+    }
+    // set service
+    this._services.set(service.identifier, service);
+    return this._services.get(service.identifier);
   }
 
   /**
@@ -53,147 +81,88 @@ class ServiceContainer {
     return this._get(service);
   }
 
-  // async _get(serviceName, parents = new Set(), injectClass = false) {
-  //   if (parents.has(serviceName)) {
-  //     throw new Error(`Dependency rotation found (${Object.keys(parents).join(' <= ')}).`);
-  //   } else if (!(serviceName in this._services)) {
-  //     throw new Error(`Service '${serviceName}' not found.`);
-  //   }
-  //   // resolve service
-  //   const service = this._services[serviceName];
-  //   parents.add(serviceName);
-  //   // if its only class dependency
-  //   if (injectClass) {
-  //     return service.Class;
-  //   }
-  //   // if service is singleton and initiated
-  //   if (service.singletonInstance) {
-  //     return service.singletonInstance;
-  //   }
-  //   // resolve dependencies, (update service dependencies adding exported)
-  //   const args = await each.series(service.di.constructor_resolved, (dependency) => {
-  //     if (dependency.type === 'service') {
-  //       dependency.exported = this._startService(dependency.name, parents, dependency.injectClass);
-  //     }
-  //     return dependency.exported;
-  //   });
-  //   // create instance
-  //   const instance = new service.exported(...args); // eslint-disable-line
-  //   // execute after constructor method
-  //   if (service.di.after) {
-  //     if (typeof instance[service.di.after] !== 'function') throw new Error(`After constructor method '${service.di.after}' not found in service '${serviceName}' instance.`);
-  //     await instance[service.di.after]();
-  //   }
-  //   // save singleton
-  //   if (service.singleton) {
-  //     service.singletonInstance = instance;
-  //   }
-  //   return instance;
-  // }
-
   /**
-   * Add service.
-   * @param service
-   * @return {Promise<{}>}
+   * Get service.
+   * @param serviceName
+   * @param parents
+   * @param injectClass
+   * @return {Promise<*>}
+   * @private
    */
-  async add(service) {
-    if (!service.name && !service.path) {
-      throw new Error(`Can't load service because path is missing. '${JSON.stringify(service)}'`);
+  async _get(serviceName, parents = new Set(), injectClass = false) {
+    if (parents.has(serviceName)) {
+      throw new Error(`Dependency rotation found (${Object.keys(parents).join(' <= ')}).`);
+    } else if (!this._services.has(serviceName)) {
+      throw new Error(`Service '${serviceName}' not found.`);
     }
-    // generate and format path
-    service.path = service.path || `${(service.namespace ? `${service.namespace}.` : '')}${service.name}`;
-    service.path = path.join(this._servicesPath, ...service.path.split('.'));
-    // initialize di
-    service.di = service.di || {};
-    if ( // load class if needed
-      !service.name || // load class to get name
-      service.resolve // load class flag
-    ) {
+    const service = this._services.get(serviceName); // get service
+    parents.add(serviceName); // add service name to list
+    if (!service.Class) { // load service Class if its not loaded yet
       service.Class = await helpers.Class.resolve(service.path);
     }
-    /**
-     * Set missing configs or extend existing ones
-     */
-    if (service.Class) {
-      if (service.Class['@di']) {
-        // constructor di is missing from configs and its set in class configs
-        if (!(service.di.constructor instanceof Array) && service.Class['@di'].constructor instanceof Array) {
-          service.di.constructor = service.Class['@di'].constructor;
-        }
-        // merge setters from configs with setters from class (configs setters have priority)
-        if (typeof service.Class['@di'].setters === 'object' && !(service.Class['@di'].setters instanceof Array)) {
-          service.di.setters = Object.assign({}, service.Class['@di'].setters, (service.di.setters || {}));
-        }
-        // set after (configs after has priority)
-        service.di.after = service.di.after || service.Class['@di'].after;
+    if (injectClass) { // if its only class dependency
+      return service.Class;
+    }
+    if (service.singleton && service.instance) { // if singleton
+      return service.instance;
+    }
+    // resolve dependencies
+    await helpers.Service.eachDI(service, async (dependency) => {
+      if (dependency.type === 'service') { // resolve service from inside
+        return this._get(dependency.service, parents, dependency.injectClass);
       }
-      service.name = service.name || service.Class['@name'] || helpers.Class.extractName(service.Class);
-      service.namespace = service.namespace || service.Class['@namespace'];
-      service.singleton = service.singleton || service.Class['@singleton'];
+      return this._dependencyResolver(dependency); // resolve dependency from FalconX
+    });
+    // create instance and inject dependencies and call after method
+    const instance = await this._instance(service);
+    // set instance
+    if (service.singleton) {
+      service.instance = instance;
     }
-    // remove constructor if its function
-    /**
-     * Validate service configs.
-     */
-    if (!service.name) {
-      throw new Error(`Trying to add a service without a name. ${JSON.stringify(service)}`);
-    }
-    // validate and format service dependencies
-    if (service.di.constructor instanceof Array) {
-      service.di.constructor_formatted = service.di.constructor.map(this._dependencyFormatter.format.bind(this._dependencyFormatter));
-    }
-    if (service.di.setters) {
-      service.di.setters_formatted = {};
-      Object.entries(service.di.setters).forEach(([method, injections]) => {
-        service.di.setters_formatted[method] = injections.map(this._dependencyFormatter.format.bind(this._dependencyFormatter));
-      });
-    }
-    // check if service is a duplicate
-    const key = `${(service.namespace ? `${service.namespace}.` : '')}${service.name}`;
-    if (this._services.has(key)) {
-      throw new Error(`This service '${key}' is already set.`);
-    }
-    // save service
-    this._services.set(key, service);
-    return this._services.get(key);
+    return instance;
   }
 
-  // _format(service) {
-  //   if (service.di) {
-  //     if (service.di.constructor instanceof Array) {
-  //       service.di.constructor_resolved = await each.series(service.di.constructor.map(formatDependency), this._resolveDependency.bind(this));
-  //     }
-  //     if (service.di.setters) {
-  //       service.di.setters_resolved = {};
-  //       await each.series(Object.entries(service.di.setters), async ([method, injections]) => {
-  //         if (method.startsWith('_')) throw new Error(`Invalid dependency private method '${method}'.`);
-  //         if (/^[a-zA-Z][a-zA-Z0-9_]*$/.test(method)) throw new Error(`Invalid dependency method '${method}'.`);
-  //         service.di.setters_resolved[method] = await each.series(injections.map(formatDependency), this._resolveDependency.bind(this));
-  //       });
-  //     }
-  //   }
-  //
-  //   if (service.di.constructor) {
-  //
-  //   }
-  //   if (service.di.settters) {
-  //
-  //   }
-  // }
+  /**
+   * Get instance.
+   * @param service
+   * @return {Promise<void>}
+   * @private
+   */
+  async _instance(service) {
+    if (!service.diResolved) {
+      return new service.Class();
+    }
+    if (!(service.diResolved.constructor instanceof Array)) {
+      service.diResolved.constructor = [];
+    }
+    const instance = new service.Class(...service.diResolved.constructor);
+    if (service.diResolved.setters) {
+      const entities = Object.entries(service.diResolved.setters);
+      await each.series(entities, async ([method, args]) => {
+        if (typeof instance[method] !== 'function') {
+          throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
+        }
+        await instance[method](...args);
+      });
+    }
+    if (service.diResolved.after) {
+      if (typeof instance[service.diResolved.after] !== 'function') {
+        throw new Error(`After method '${service.diResolved.after}' not found in service '${service.name}' instance.`);
+      }
+      await instance[service.diResolved.after]();
+    }
+    return instance;
+  }
 }
 
 /**
  * Validations
  */
-validations.classConstructor = (servicesPath, dependencyFormatter) => {
-  if (typeof servicesPath === 'undefined') throw new Error('Missing servicesPath argument.');
-  if (typeof dependencyFormatter === 'undefined') throw new Error('Missing dependencyFormatter argument.');
-  if (typeof servicesPath !== 'string') throw new Error(`Wrong servicesPath argument type ${typeof servicesPath}, expected string.`);
-  if (!(dependencyFormatter instanceof DependencyFormatter)) throw new Error(`Wrong dependencyFormatter argument type ${typeof dependencyFormatter}, expected DependencyFormatter.`);
-};
-validations.setPath = (servicesPath) => {
-  if (typeof servicesPath === 'undefined') throw new Error('Missing servicesPath argument.');
-  if (typeof servicesPath !== 'string') throw new Error(`Wrong servicesPath argument type ${typeof servicesPath}, expected string.`);
+validations.classConstructor = (directory, dependencyResolver) => {
+  if (typeof directory === 'undefined') throw new Error('Missing services directory argument.');
+  if (typeof dependencyResolver === 'undefined') throw new Error('Missing dependencyResolver argument.');
+  if (typeof directory !== 'string') throw new Error(`Wrong services directory argument type ${typeof directory}, expected string.`);
+  if (typeof dependencyResolver !== 'function') throw new Error(`Wrong dependencyResolver argument type ${typeof dependencyResolver}, expected function.`);
 };
 validations.add = (service) => {
   if (typeof service === 'undefined') throw new Error('Missing service argument.');
@@ -201,7 +170,7 @@ validations.add = (service) => {
 };
 validations.get = (service) => {
   if (typeof service === 'undefined') throw new Error('Missing service argument.');
-  if (typeof service !== 'object' || service instanceof Array) throw new Error(`Wrong name argument type ${service instanceof Array ? 'array' : typeof service}, expected object.`);
+  if (typeof service !== 'string') throw new Error(`Wrong service argument type ${typeof service}, expected string.`);
 };
 ServiceContainer.validations = validations;
 /**

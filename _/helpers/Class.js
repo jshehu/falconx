@@ -10,12 +10,12 @@ const Class = {
    * @param path
    * @return {*}
    */
-  resolve(path) {
+  async resolve(path) {
     if (typeof path === 'undefined') throw new Error('Missing path argument.');
     if (typeof path !== 'string') throw new Error(`Wrong path argument type ${typeof path}, expected string.`);
     let ClassObj;
     try {
-      ClassObj = require(path);
+      ClassObj = await require(path);
     } catch (err) {
       //
       throw err;

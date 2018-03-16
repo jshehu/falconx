@@ -1,3 +1,4 @@
+const { EventEmitter } = require('events');
 const path = require('path');
 const InstanceProxy = require('./InstanceProxy');
 
@@ -7,26 +8,28 @@ const errors = {};
 /**
  * Representing service container.
  */
-class EnvironmentLoader {
+class EnvironmentLoader extends EventEmitter {
   /**
    * @constructor
-   * @param environmentsPath
+   * @param directory
    */
-  constructor(environmentsPath) {
-    validations.classConstructor(environmentsPath);
-    this._environmentsPath = environmentsPath;
-    this._name = null;
-    this._path = null;
-    this._environment = null;
+  constructor(directory) {
+    super();
+    validations.classConstructor(directory);
+    this._init(directory);
     return InstanceProxy(this, validations);
   }
 
   /**
-   * Set environments path.
-   * @param environmentsPath
+   * Init.
+   * @param directory
+   * @private
    */
-  setPath(environmentsPath) {
-    this._environmentsPath = environmentsPath;
+  _init(directory) {
+    this._directory = directory;
+    this._name = null;
+    this._environment = null;
+    this._loaded = false;
   }
 
   /**
@@ -35,50 +38,73 @@ class EnvironmentLoader {
    * @return {Promise<void>}
    */
   async load(name) {
-    const _path = path.join(this._environmentsPath, name);
-    let env;
-    try {
-      env = await require(_path);
-    } catch (err) {
-      err.message = `Can't load environment '${name}' using path '${_path}'. Message: ${err.message}`;
-      throw err;
+    if (this._loaded) {
+      throw new Error(`Environment is already loaded '${path.join(this._directory, this._name)}'.`);
     }
+    const env = await this._load(name);
     // overwrite default values
     Object.assign(env, process.env);
     // set unset values
     Object.assign(process.env, env);
-    this._path = _path;
     this._name = name;
     this._environment = env;
+    this._loaded = true;
+    this.emit('loaded', this._name, this._environment);
+  }
+
+  /**
+   * Load environment.
+   * @param name
+   * @return {Promise<*>}
+   * @private
+   */
+  async _load(name) {
+    const fullPath = path.join(this._directory, name);
+    try {
+      return await require(path.join(this._directory, name));
+    } catch (err) {
+      err.message = `Can't load environment '${name}' using path '${fullPath}'. Message: ${err.message}`;
+      throw err;
+    }
   }
 
   /**
    * Get environment name.
-   * @return {null|*}
+   * @return {string}
    */
-  name() {
+  getName() {
+    if (!this._loaded) {
+      throw new Error('Trying to get environment name without loading it first.');
+    }
     return this._name;
   }
 
   /**
    * Get environment.
-   * @return {null|*}
+   * @return {*}
    */
-  get() {
+  getEnvironment() {
+    if (!this._loaded) {
+      throw new Error('Trying to get environment without loading it first.');
+    }
     return this._environment;
+  }
+
+  /**
+   * Is environment loaded?
+   * @return {boolean}
+   */
+  isLoaded() {
+    return this._loaded;
   }
 }
 
 /**
  * Validations
  */
-validations.classConstructor = (environmentsPath) => {
-  if (typeof environmentsPath === 'undefined') throw new Error('Missing environmentsPath argument.');
-  if (typeof environmentsPath !== 'string') throw new Error(`Wrong environmentsPath argument type ${typeof environmentsPath}, expected string.`);
-};
-validations.setPath = (environmentsPath) => {
-  if (typeof environmentsPath === 'undefined') throw new Error('Missing environmentsPath argument.');
-  if (typeof environmentsPath !== 'string') throw new Error(`Wrong environmentsPath argument type ${typeof environmentsPath}, expected string.`);
+validations.classConstructor = (directory) => {
+  if (typeof directory === 'undefined') throw new Error('Missing environments directory argument.');
+  if (typeof directory !== 'string') throw new Error(`Wrong environments directory argument type ${typeof directory}, expected string.`);
 };
 EnvironmentLoader.validations = validations;
 /**
