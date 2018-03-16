@@ -1,6 +1,6 @@
 {
   "name": "falconx",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "Framework",
   "main": "Falconx.js",
   "dependencies": {
@@ -15,5 +15,16 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Jeton Shehu",
-  "license": "ISC"
+  "license": "ISC",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jshehu/falconx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jshehu/falconx/issues"
+  },
+  "homepage": "https://github.com/jshehu/falconx#readme"
 }
