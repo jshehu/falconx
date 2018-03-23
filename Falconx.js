@@ -52,6 +52,9 @@ class Falconx {
     Object.keys(this._directories).forEach((entity) => {
       this._directories[entity] = path.join(this._root, ...this._directories[entity].split('.'));
     });
+    // identifiers
+    this._commandIdentifiers = new Map();
+    this._testIdentifiers = new Map();
   }
 
   /**
@@ -99,7 +102,7 @@ class Falconx {
    */
   async addService(service) {
     if (!this._environmentLoader.isLoaded()) {
-      throw new Error('Trying to access service container without loading environment first.');
+      throw new Error('Trying to add service without loading environment first.');
     }
     return this._serviceContainer.set(service);
   }
@@ -111,9 +114,99 @@ class Falconx {
    */
   async getService(serviceName) {
     if (!this._environmentLoader.isLoaded()) {
-      throw new Error('Trying to access service container without loading environment first.');
+      throw new Error('Trying to get service without loading environment first.');
     }
     return this._serviceContainer.get(serviceName);
+  }
+
+  /**
+   * Add services.
+   * @param commands
+   * @return {Promise<*|Promise<Array>>}
+   */
+  async addCommands(commands) {
+    return each.series(commands, this.addCommand.bind(this));
+  }
+
+  /**
+   * Add command.
+   * @param command
+   * @return {Promise<*>}
+   */
+  async addCommand(command) {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to add command without loading environment first.');
+    }
+    try {
+      command.from = 'command';
+      command.identifier = helpers.Service.randomIdentifier();
+      const service = await this._serviceContainer.set(command);
+      this._commandIdentifiers.set(service.realIdentifier, service.identifier);
+    } catch (err) {
+      err.message = err.message.replace('service', 'command').replace('Service', 'Command');
+      throw err;
+    }
+  }
+
+  /**
+   * Execute command.
+   * @param commandName
+   * @return {Promise<*>}
+   */
+  async execCommand(commandName) {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to execute command without loading environment first.');
+    }
+    if (!this._commandIdentifiers.has(commandName)) {
+      throw new Error(`Command '${commandName}' not found.`);
+    }
+    const identifier = this._commandIdentifiers.get(commandName);
+    return this._serviceContainer.get(identifier);
+  }
+
+  /**
+   * Add services.
+   * @param tests
+   * @return {Promise<*|Promise<Array>>}
+   */
+  async addTests(tests) {
+    return each.series(tests, this.addTest.bind(this));
+  }
+
+  /**
+   * Add test.
+   * @param test
+   * @return {Promise<*>}
+   */
+  async addTest(test) {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to add test without loading environment first.');
+    }
+    try {
+      test.from = 'command';
+      test.identifier = helpers.Service.randomIdentifier();
+      const service = await this._serviceContainer.set(test);
+      this._testIdentifiers.set(service.realIdentifier, service.identifier);
+    } catch (err) {
+      err.message = err.message.replace('service', 'test').replace('Service', 'Test');
+      throw err;
+    }
+  }
+
+  /**
+   * Run test.
+   * @param testName
+   * @return {Promise<*>}
+   */
+  async runTest(testName) {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to run test without loading environment first.');
+    }
+    if (!this._testIdentifiers.has(testName)) {
+      throw new Error(`Test '${testName}' not found.`);
+    }
+    const identifier = this._testIdentifiers.get(testName);
+    return this._serviceContainer.get(identifier);
   }
 
   /**

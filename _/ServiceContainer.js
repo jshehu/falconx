@@ -45,7 +45,6 @@ class ServiceContainer {
    * Set service.
    * @param service
    * @return {Promise<*>}
-   * @private
    */
   async set(service) {
     helpers.Service.formatPath(service, this._directoryResolver);
@@ -146,21 +145,37 @@ class ServiceContainer {
     if (!(service.diResolved.constructor instanceof Array)) {
       service.diResolved.constructor = [];
     }
-    const instance = new service.Class(...service.diResolved.constructor);
+    let instance;
+    try {
+      instance = new service.Class(...service.diResolved.constructor);
+    } catch (err) {
+      console.log(`Error while creating service '${service.name}' instance.`);
+      throw err;
+    }
     if (service.diResolved.setters) {
       const entities = Object.entries(service.diResolved.setters);
       await each.series(entities, async ([method, args]) => {
         if (typeof instance[method] !== 'function') {
           throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
         }
-        await instance[method](...args);
+        try {
+          await instance[method](...args);
+        } catch (err) {
+          console.log(`Error while calling setter method '${method}' from service '${service.name}' instance.`);
+          throw err;
+        }
       });
     }
     if (service.diResolved.after) {
       if (typeof instance[service.diResolved.after] !== 'function') {
         throw new Error(`After method '${service.diResolved.after}' not found in service '${service.name}' instance.`);
       }
-      await instance[service.diResolved.after]();
+      try {
+        await instance[service.diResolved.after]();
+      } catch (err) {
+        console.log(`Error while calling after method '${service.diResolved.after}' from service '${service.name}' instance.`);
+        throw err;
+      }
     }
     return instance;
   }

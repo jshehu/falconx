@@ -2,6 +2,7 @@ const Dependency = require('./Dependency');
 const Class = require('./Class');
 const each = require('each.js');
 const path = require('path');
+const crypto = require('crypto');
 
 const Service = {
   /**
@@ -100,7 +101,8 @@ const Service = {
   generateIdentifier(service) {
     if (typeof service === 'undefined') throw new Error('Missing service argument.');
     if (typeof service !== 'object') throw new Error(`Wrong service argument type ${typeof service}, expected object.`);
-    service.identifier = `${(service.namespace ? `${service.namespace}.` : '')}${service.name}`;
+    service.realIdentifier = `${(service.namespace ? `${service.namespace}.` : '')}${service.name}`;
+    service.identifier = service.identifier || service.realIdentifier;
     return service;
   },
   /**
@@ -167,6 +169,13 @@ const Service = {
       throw new Error(`Service '${service.path}' is not a class.`);
     }
     return true;
+  },
+  /**
+   * Get random identifier.
+   * @return {string}
+   */
+  randomIdentifier() {
+    return `${crypto.randomBytes(16).toString('hex')}-${Date.now()}`;
   },
 };
 
