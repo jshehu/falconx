@@ -183,7 +183,7 @@ class Falconx {
       throw new Error('Trying to add test without loading environment first.');
     }
     try {
-      test.from = 'command';
+      test.from = 'test';
       test.identifier = helpers.Service.randomIdentifier();
       const service = await this._serviceContainer.set(test);
       this._testIdentifiers.set(service.realIdentifier, service.identifier);
