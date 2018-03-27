@@ -49,11 +49,14 @@ const Dependency = {
   /**
    * Format dependency.
    * @param dependency
-   * @return {{type} & any}
+   * @return {*}
    */
   format(dependency) {
     if (typeof dependency === 'undefined') throw new Error('Missing dependency argument.');
-    if (typeof dependency !== 'string') throw new Error(`Wrong dependency argument type ${typeof dependency}, expected string.`);
+    if (typeof dependency !== 'string' && typeof dependency !== 'function') throw new Error(`Wrong dependency argument type ${typeof dependency}, expected string or function.`);
+    if (typeof dependency === 'function') {
+      return dependency;
+    }
     const [[type, dep], found] = extractor.extract(dependency, 'typeWithDependencyRegex');
     if (!found) {
       throw new Error(`Invalid dependency '${dependency}'.`);
