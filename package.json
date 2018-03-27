@@ -1,6 +1,6 @@
 {
   "name": "falconx",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Framework",
   "main": "Falconx.js",
   "dependencies": {
