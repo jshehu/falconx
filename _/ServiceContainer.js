@@ -108,9 +108,11 @@ class ServiceContainer {
       }
     }
     if (injectClass) { // if its only class dependency
+      parents.delete(serviceName);
       return service.Class;
     }
     if ((service.singleton || service.isInstance) && service.instance) { // if singleton
+      parents.delete(serviceName);
       return service.instance;
     }
     // resolve dependencies
@@ -129,6 +131,7 @@ class ServiceContainer {
     if ((service.singleton || service.isInstance)) {
       service.instance = instance;
     }
+    parents.delete(serviceName);
     return instance;
   }
 
