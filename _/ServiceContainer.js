@@ -107,13 +107,10 @@ class ServiceContainer {
         helpers.Service.resolvedCorrectly(service);
       }
     }
-    if (service.isInstance) { // already resolved dependency
-      return service.Class;
-    }
     if (injectClass) { // if its only class dependency
       return service.Class;
     }
-    if (service.singleton && service.instance) { // if singleton
+    if ((service.singleton || service.isInstance) && service.instance) { // if singleton
       return service.instance;
     }
     // resolve dependencies
@@ -129,7 +126,7 @@ class ServiceContainer {
     // create instance and inject dependencies and call after method
     const instance = await this._instance(service);
     // set instance
-    if (service.singleton) {
+    if ((service.singleton || service.isInstance)) {
       service.instance = instance;
     }
     return instance;
@@ -142,15 +139,16 @@ class ServiceContainer {
    * @private
    */
   async _instance(service) {
-    if (!service.diResolved) {
-      return new service.Class();
-    }
-    if (!(service.diResolved.constructor instanceof Array)) {
+    if (service.diResolved && !(service.diResolved.constructor instanceof Array)) {
       service.diResolved.constructor = [];
     }
     let instance;
     try {
-      instance = new service.Class(...service.diResolved.constructor);
+      if (service.isInstance) {
+        instance = service.Class;
+      } else {
+        instance = new service.Class(...((service.diResolved && service.diResolved.constructor) || []));
+      }
     } catch (err) {
       console.log(`Error while creating service '${service.name}' instance.`);
       throw err;

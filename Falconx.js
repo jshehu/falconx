@@ -9,6 +9,12 @@ const validations = {};
 const errors = {};
 
 /**
+ * TODO:
+ * 1. add tags: [] support for dependencies
+ * 2. auto-inject dependencies on specified functions when they are called
+ */
+
+/**
  * Representing Falconx.
  */
 class Falconx {
