@@ -53,13 +53,17 @@ const Dependency = {
    */
   format(dependency) {
     if (typeof dependency === 'undefined') throw new Error('Missing dependency argument.');
-    if (typeof dependency !== 'string' && typeof dependency !== 'function') throw new Error(`Wrong dependency argument type ${typeof dependency}, expected string or function.`);
-    if (typeof dependency === 'function') {
+    // if (typeof dependency !== 'string' && typeof dependency !== 'function') throw new Error(`Wrong dependency argument type ${typeof dependency}, expected string or function.`);
+    // if (typeof dependency === 'function') {
+    //   return dependency;
+    // }
+    if (typeof dependency !== 'string') {
       return dependency;
     }
     const [[type, dep], found] = extractor.extract(dependency, 'typeWithDependencyRegex');
     if (!found) {
-      throw new Error(`Invalid dependency '${dependency}'.`);
+      // throw new Error(`Invalid dependency '${dependency}'.`);
+      return dependency;
     }
     const extractedData = depFormat[`${type}`](dep);
     return Object.assign({ type }, extractedData);

@@ -12,6 +12,9 @@ const errors = {};
  * TODO:
  * 1. add tags: [] support for dependencies
  * 2. auto-inject dependencies on specified functions when they are called
+ * 3. storage inside framework capable of saving objects inside for usage in extends
+ * 4. addCommands and runCommands, addTests and runTests
+ * 5. di static variables not only static functions
  */
 
 /**
