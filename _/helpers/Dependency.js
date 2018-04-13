@@ -58,12 +58,12 @@ const Dependency = {
     //   return dependency;
     // }
     if (typeof dependency !== 'string') {
-      return dependency;
+      return { type: 'static', value: dependency };
     }
     const [[type, dep], found] = extractor.extract(dependency, 'typeWithDependencyRegex');
     if (!found) {
       // throw new Error(`Invalid dependency '${dependency}'.`);
-      return dependency;
+      return { type: 'static', value: dependency };
     }
     const extractedData = depFormat[`${type}`](dep);
     return Object.assign({ type }, extractedData);

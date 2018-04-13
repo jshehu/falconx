@@ -117,11 +117,10 @@ class ServiceContainer {
     }
     // resolve dependencies
     await helpers.Service.eachDI(service, async (dependency) => {
-      if (typeof dependency === 'function') {
-        return dependency;
-      }
       if (dependency.type === 'service') { // resolve service from inside
         return this._get(dependency.service, parents, dependency.injectClass);
+      } else if (dependency.type === 'static') {
+        return dependency.value;
       }
       return this._dependencyResolver(dependency); // resolve dependency from FalconX
     });

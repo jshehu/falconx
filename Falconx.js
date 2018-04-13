@@ -14,7 +14,10 @@ const errors = {};
  * 2. auto-inject dependencies on specified functions when they are called
  * 3. storage inside framework capable of saving objects inside for usage in extends
  * 4. addCommands and runCommands, addTests and runTests
- * 5. di static variables not only static functions
+ * 5. use some specific functions for di Config(), Environment(), Factory(), Helper(), Service()
+ *    in order to check if di is static or not (if dependency instanceof Service)
+ *    and because its less error prone
+ * 6. di setters support multi-call for same function
  */
 
 /**
