@@ -155,29 +155,31 @@ class ServiceContainer {
       console.log(`Error while creating service '${service.name}' instance.`);
       throw err;
     }
-    if (service.diResolved.setters) {
-      const entities = Object.entries(service.diResolved.setters);
-      await each.series(entities, async ([method, args]) => {
-        if (typeof instance[method] !== 'function') {
-          throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
+    if (service.diResolved) {
+      if (service.diResolved.setters) {
+        const entities = Object.entries(service.diResolved.setters);
+        await each.series(entities, async ([method, args]) => {
+          if (typeof instance[method] !== 'function') {
+            throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
+          }
+          try {
+            await instance[method](...args);
+          } catch (err) {
+            console.log(`Error while calling setter method '${method}' from service '${service.name}' instance.`);
+            throw err;
+          }
+        });
+      }
+      if (service.diResolved.after) {
+        if (typeof instance[service.diResolved.after] !== 'function') {
+          throw new Error(`After method '${service.diResolved.after}' not found in service '${service.name}' instance.`);
         }
         try {
-          await instance[method](...args);
+          await instance[service.diResolved.after]();
         } catch (err) {
-          console.log(`Error while calling setter method '${method}' from service '${service.name}' instance.`);
+          console.log(`Error while calling after method '${service.diResolved.after}' from service '${service.name}' instance.`);
           throw err;
         }
-      });
-    }
-    if (service.diResolved.after) {
-      if (typeof instance[service.diResolved.after] !== 'function') {
-        throw new Error(`After method '${service.diResolved.after}' not found in service '${service.name}' instance.`);
-      }
-      try {
-        await instance[service.diResolved.after]();
-      } catch (err) {
-        console.log(`Error while calling after method '${service.diResolved.after}' from service '${service.name}' instance.`);
-        throw err;
       }
     }
     return instance;
