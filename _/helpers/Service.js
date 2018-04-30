@@ -76,7 +76,7 @@ const Service = {
       if (service.di.setters) {
         if (service.di.setters instanceof Array) {
           service.diFormatted.setters = [];
-          service.di.setters.forEach(({ method, injections }) => {
+          service.di.setters.forEach(({ method, args: injections }) => {
             if (method.startsWith('_')) {
               throw new Error(`Invalid dependency '${service.name}' private method '${method}'.`);
             }
@@ -137,7 +137,7 @@ const Service = {
       if (service.diFormatted.setters) {
         if (service.diFormatted.setters instanceof Array) {
           service.diResolved.setters = [];
-          await each.series(service.diFormatted.setters, async ({ method, injections }) => {
+          await each.series(service.diFormatted.setters, async ({ method, args: injections }) => {
             service.diResolved.setters.push({ method, args: await each.series(injections, dependencyResolver) });
           });
         } else {
