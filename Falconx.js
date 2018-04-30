@@ -17,7 +17,6 @@ const errors = {};
  * 5. use some specific functions for di Config(), Environment(), Factory(), Helper(), Service()
  *    in order to check if di is static or not (if dependency instanceof Service)
  *    and because its less error prone
- * 6. di setters support multi-call for same function
  */
 
 /**

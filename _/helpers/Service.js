@@ -74,17 +74,30 @@ const Service = {
       }
       // format service setter dependencies
       if (service.di.setters) {
-        service.diFormatted.setters = {};
-        const entries = Object.entries(service.di.setters);
-        entries.forEach(([method, injections]) => {
-          if (method.startsWith('_')) {
-            throw new Error(`Invalid dependency '${service.name}' private method '${method}'.`);
-          }
-          if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(method)) {
-            throw new Error(`Invalid dependency '${service.name}' method '${method}'.`);
-          }
-          service.diFormatted.setters[method] = injections.map(Dependency.format);
-        });
+        if (service.di.setters instanceof Array) {
+          service.diFormatted.setters = [];
+          service.di.setters.forEach(({ method, injections }) => {
+            if (method.startsWith('_')) {
+              throw new Error(`Invalid dependency '${service.name}' private method '${method}'.`);
+            }
+            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(method)) {
+              throw new Error(`Invalid dependency '${service.name}' method '${method}'.`);
+            }
+            service.diFormatted.setters.push({ method, args: injections.map(Dependency.format) });
+          });
+        } else {
+          service.diFormatted.setters = {};
+          const entries = Object.entries(service.di.setters);
+          entries.forEach(([method, injections]) => {
+            if (method.startsWith('_')) {
+              throw new Error(`Invalid dependency '${service.name}' private method '${method}'.`);
+            }
+            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(method)) {
+              throw new Error(`Invalid dependency '${service.name}' method '${method}'.`);
+            }
+            service.diFormatted.setters[method] = injections.map(Dependency.format);
+          });
+        }
       }
       // pass after
       if (service.di.after) {
@@ -122,11 +135,18 @@ const Service = {
       }
       // resolve service setter dependencies
       if (service.diFormatted.setters) {
-        service.diResolved.setters = {};
-        const entries = Object.entries(service.diFormatted.setters);
-        await each.series(entries, async ([method, injections]) => {
-          service.diResolved.setters[method] = await each.series(injections, dependencyResolver);
-        });
+        if (service.diFormatted.setters instanceof Array) {
+          service.diResolved.setters = [];
+          await each.series(service.diFormatted.setters, async ({ method, injections }) => {
+            service.diResolved.setters.push({ method, args: await each.series(injections, dependencyResolver) });
+          });
+        } else {
+          service.diResolved.setters = {};
+          const entries = Object.entries(service.diFormatted.setters);
+          await each.series(entries, async ([method, injections]) => {
+            service.diResolved.setters[method] = await each.series(injections, dependencyResolver);
+          });
+        }
       }
       // pass after
       if (service.diFormatted.after) {

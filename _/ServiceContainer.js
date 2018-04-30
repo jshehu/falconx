@@ -157,18 +157,32 @@ class ServiceContainer {
     }
     if (service.diResolved) {
       if (service.diResolved.setters) {
-        const entities = Object.entries(service.diResolved.setters);
-        await each.series(entities, async ([method, args]) => {
-          if (typeof instance[method] !== 'function') {
-            throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
-          }
-          try {
-            await instance[method](...args);
-          } catch (err) {
-            console.log(`Error while calling setter method '${method}' from service '${service.name}' instance.`);
-            throw err;
-          }
-        });
+        if (service.diResolved.setters instanceof Array) {
+          await each.series(service.diResolved.setters, async ({ method, args }) => {
+            if (typeof instance[method] !== 'function') {
+              throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
+            }
+            try {
+              await instance[method](...args);
+            } catch (err) {
+              console.log(`Error while calling setter method '${method}' from service '${service.name}' instance.`);
+              throw err;
+            }
+          });
+        } else {
+          const entities = Object.entries(service.diResolved.setters);
+          await each.series(entities, async ([method, args]) => {
+            if (typeof instance[method] !== 'function') {
+              throw new Error(`Setter method '${method}' not found in service '${service.name}' instance.`);
+            }
+            try {
+              await instance[method](...args);
+            } catch (err) {
+              console.log(`Error while calling setter method '${method}' from service '${service.name}' instance.`);
+              throw err;
+            }
+          });
+        }
       }
       if (service.diResolved.after) {
         if (typeof instance[service.diResolved.after] !== 'function') {
