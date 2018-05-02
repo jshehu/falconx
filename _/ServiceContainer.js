@@ -198,6 +198,15 @@ class ServiceContainer {
     }
     return instance;
   }
+
+  /**
+   * Get service names by namespace.
+   * @param namespace
+   * @returns {*}
+   */
+  getServiceNamesByNamespace(namespace) {
+    return this._services.keys().filter(name => name.startsWith(namespace));
+  }
 }
 
 /**

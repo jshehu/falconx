@@ -131,6 +131,23 @@ class Falconx {
   }
 
   /**
+   * Get services by namespace.
+   * @param namespace
+   * @returns {Promise<void>}
+   */
+  async getServicesByNamespace(namespace) {
+    if (!this._environmentLoader.isLoaded()) {
+      throw new Error('Trying to get service without loading environment first.');
+    }
+    const names = this._serviceContainer.getServiceNamesByNamespace(namespace);
+    const services = {};
+    await each.series(names, async (name) => {
+      services[name] = await this._serviceContainer.get(name);
+    });
+    return services;
+  }
+
+  /**
    * Add services.
    * @param commands
    * @return {Promise<*|Promise<Array>>}
