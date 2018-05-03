@@ -143,7 +143,7 @@ class Falconx {
     const names = this._serviceContainer.getServiceNamesByNamespace(namespace);
     const services = {};
     await each.series(names, async (name) => {
-      const serviceName = typeof formatter === 'function' ? formatter[name] : name;
+      const serviceName = typeof formatter === 'function' ? formatter(name) : name;
       services[serviceName] = await this._serviceContainer.get(name);
     });
     return services;
