@@ -205,7 +205,7 @@ class ServiceContainer {
    * @returns {*}
    */
   getServiceNamesByNamespace(namespace) {
-    return this._services.keys().filter(name => name.startsWith(namespace));
+    return Array.from(this._services.keys()).filter(name => name.startsWith(namespace));
   }
 }
 

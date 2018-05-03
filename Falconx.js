@@ -133,16 +133,18 @@ class Falconx {
   /**
    * Get services by namespace.
    * @param namespace
+   * @param formatter
    * @returns {Promise<void>}
    */
-  async getServicesByNamespace(namespace) {
+  async getServicesByNamespace(namespace, formatter) {
     if (!this._environmentLoader.isLoaded()) {
       throw new Error('Trying to get service without loading environment first.');
     }
     const names = this._serviceContainer.getServiceNamesByNamespace(namespace);
     const services = {};
     await each.series(names, async (name) => {
-      services[name] = await this._serviceContainer.get(name);
+      const serviceName = typeof formatter === 'function' ? formatter[name] : name;
+      services[serviceName] = await this._serviceContainer.get(name);
     });
     return services;
   }
