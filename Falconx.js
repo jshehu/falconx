@@ -1,5 +1,6 @@
 const path = require('path');
 const each = require('each.js');
+const getFuncArgs = require('get-func-args');
 const EnvironmentLoader = require('./_/EnvironmentLoader');
 const ServiceContainer = require('./_/ServiceContainer');
 const InstanceProxy = require('./_/InstanceProxy');
@@ -95,6 +96,16 @@ class Falconx {
    */
   async loadEnvironment(name) {
     return this._environmentLoader.load(name);
+  }
+
+  /**
+   * Add services from configs.
+   * @param name
+   * @returns {Promise<void>}
+   */
+  async addServicesFromConfig(name) {
+    const services = await this._dependencyResolver({ name, type: 'config', prop: '' });
+    await this.addServices(services);
   }
 
   /**
@@ -246,6 +257,20 @@ class Falconx {
    * @private
    */
   async _dependencyResolver(dependency) {
+    if (dependency.type === 'static') {
+      if (typeof dependency.value === 'function') {
+        const funcArgs = getFuncArgs(dependency.value).map(arg => arg.toLowerCase());
+        return (...args) => {
+          return dependency.value(...funcArgs.map(arg => {
+            if (arg === 'falconx') {
+              return this;
+            }
+            return args.shift();
+          }));
+        };
+      }
+      return dependency.value;
+    }
     if (dependency.exported) { // if resolved before
       return dependency.exported;
     }

@@ -4,7 +4,8 @@
   "description": "Framework",
   "main": "Falconx.js",
   "dependencies": {
-    "each.js": "^1.0.4"
+    "each.js": "^1.0.4",
+    "get-func-args": "^1.0.4"
   },
   "devDependencies": {
     "eslint": "^4.18.2",
