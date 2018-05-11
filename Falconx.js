@@ -161,6 +161,16 @@ class Falconx {
   }
 
   /**
+   * Add commands from configs.
+   * @param name
+   * @returns {Promise<void>}
+   */
+  async addCommandsFromConfig(name) {
+    const commands = await this._dependencyResolver({ name, type: 'config', prop: '' });
+    await this.addCommands(commands);
+  }
+
+  /**
    * Add services.
    * @param commands
    * @return {Promise<*|Promise<Array>>}
@@ -203,6 +213,16 @@ class Falconx {
     }
     const identifier = this._commandIdentifiers.get(commandName);
     return this._serviceContainer.get(identifier);
+  }
+
+  /**
+   * Add tests from configs.
+   * @param name
+   * @returns {Promise<void>}
+   */
+  async addTestsFromConfig(name) {
+    const tests = await this._dependencyResolver({ name, type: 'config', prop: '' });
+    await this.addCommands(tests);
   }
 
   /**
