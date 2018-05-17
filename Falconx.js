@@ -222,7 +222,7 @@ class Falconx {
    */
   async addTestsFromConfig(name) {
     const tests = await this._dependencyResolver({ name, type: 'config', prop: '' });
-    await this.addCommands(tests);
+    await this.addTests(tests);
   }
 
   /**
