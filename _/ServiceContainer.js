@@ -1,6 +1,7 @@
 const each = require('each.js');
 const InstanceProxy = require('./InstanceProxy');
 const helpers = require('./helpers');
+const EventEmitter = require('events');
 
 const validations = {};
 const errors = {};
@@ -30,6 +31,7 @@ class ServiceContainer {
     this._directoryResolver = directory;
     this._dependencyResolver = dependencyResolver;
     this._services = new Map();
+    this._serviceSingletonLock = new Set();
   }
 
   /**
@@ -115,20 +117,43 @@ class ServiceContainer {
       parents.delete(serviceName);
       return service.instance;
     }
-    // resolve dependencies
-    await helpers.Service.eachDI(service, async (dependency) => {
-      if (dependency.type === 'service') { // resolve service from inside
-        return this._get(dependency.service, parents, dependency.injectClass);
-      }
-      return this._dependencyResolver(dependency); // resolve dependency from FalconX
-    });
-    // create instance and inject dependencies and call after method
-    const instance = await this._instance(service);
-    // set instance
-    if ((service.singleton || service.isInstance)) {
-      service.instance = instance;
+    // check for lock
+    const lockEmitter = new EventEmitter();
+    if (service.singleton && this._serviceSingletonLock.has(serviceName)) {
+      return new Promise((resolve, reject) => {
+        lockEmitter.once(`${serviceName}:resolve`, resolve);
+        lockEmitter.once(`${serviceName}:reject`, reject);
+      });
     }
-    parents.delete(serviceName);
+    // set lock
+    this._serviceSingletonLock.add(serviceName);
+    // catch error emit it and unlock the service
+    let instance;
+    try {
+      // resolve dependencies
+      await helpers.Service.eachDI(service, async (dependency) => {
+        if (dependency.type === 'service') { // resolve service from inside
+          return this._get(dependency.service, parents, dependency.injectClass);
+        }
+        return this._dependencyResolver(dependency); // resolve dependency from FalconX
+      });
+      // create instance and inject dependencies and call after method
+      instance = await this._instance(service);
+      // set instance
+      if ((service.singleton || service.isInstance)) {
+        service.instance = instance;
+      }
+      parents.delete(serviceName);
+    } catch (err) {
+      this._serviceSingletonLock.delete(serviceName);
+      lockEmitter.emit(`${serviceName}:reject`, err);
+      throw err;
+    }
+    // remove lock
+    if (service.singleton) {
+      this._serviceSingletonLock.delete(serviceName);
+      lockEmitter.emit(`${serviceName}:resolve`, instance);
+    }
     return instance;
   }
 
