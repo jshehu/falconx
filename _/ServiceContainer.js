@@ -9,13 +9,14 @@ const errors = {};
 /**
  * Representing service container.
  */
-class ServiceContainer {
+class ServiceContainer extends EventEmitter {
   /**
    * @constructor
    * @param directoryResolver
    * @param dependencyResolver
    */
   constructor(directoryResolver, dependencyResolver) {
+    super();
     validations.classConstructor(directoryResolver, dependencyResolver);
     this._init(directoryResolver, dependencyResolver);
     return InstanceProxy(this, validations);
@@ -118,17 +119,19 @@ class ServiceContainer {
       return service.instance;
     }
     // check for lock
-    const lockEmitter = new EventEmitter();
+    let instance;
     if (service.singleton && this._serviceSingletonLock.has(serviceName)) {
       return new Promise((resolve, reject) => {
-        lockEmitter.once(`${serviceName}:resolve`, resolve);
-        lockEmitter.once(`${serviceName}:reject`, reject);
+        if (instance) {
+          return instance;
+        }
+        this.once(`${serviceName}:resolve`, resolve);
+        this.once(`${serviceName}:reject`, reject);
       });
     }
     // set lock
     this._serviceSingletonLock.add(serviceName);
     // catch error emit it and unlock the service
-    let instance;
     try {
       // resolve dependencies
       await helpers.Service.eachDI(service, async (dependency) => {
@@ -146,13 +149,13 @@ class ServiceContainer {
       parents.delete(serviceName);
     } catch (err) {
       this._serviceSingletonLock.delete(serviceName);
-      lockEmitter.emit(`${serviceName}:reject`, err);
+      this.emit(`${serviceName}:reject`, err);
       throw err;
     }
     // remove lock
     if (service.singleton) {
       this._serviceSingletonLock.delete(serviceName);
-      lockEmitter.emit(`${serviceName}:resolve`, instance);
+      this.emit(`${serviceName}:resolve`, instance);
     }
     return instance;
   }
