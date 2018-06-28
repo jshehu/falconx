@@ -125,8 +125,18 @@ class ServiceContainer extends EventEmitter {
         if (instance) {
           return instance;
         }
-        this.once(`${serviceName}:resolve`, resolve);
-        this.once(`${serviceName}:reject`, reject);
+        const onResolve = (instance) => {
+          this.removeAllListeners(`${serviceName}:resolve`);
+          this.removeAllListeners(`${serviceName}:reject`);
+          resolve(instance);
+        };
+        const onReject = (err) => {
+          this.removeAllListeners(`${serviceName}:resolve`);
+          this.removeAllListeners(`${serviceName}:reject`);
+          reject(err);
+        };
+        this.once(`${serviceName}:resolve`, onResolve);
+        this.once(`${serviceName}:reject`, onReject);
       });
     }
     // set lock
